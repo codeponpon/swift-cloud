@@ -6,30 +6,48 @@
   "directories": {
     "test": "test"
   },
+  "private": true,
   "scripts": {
-    "test": "npm run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
+    "test": "npm run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register test/**/*.ts",
     "start": "npm run build:ts && fastify start -l info dist/app.js",
     "build:ts": "tsc",
     "watch:ts": "tsc -w",
     "dev": "npm run build:ts && concurrently -k -p \"[{name}]\" -n \"TypeScript,App\" -c \"yellow.bold,cyan.bold\" \"npm:watch:ts\" \"npm:dev:start\"",
-    "dev:start": "fastify start --ignore-watch=.ts$ -w -l info -P dist/app.js"
+    "dev:start": "fastify start --ignore-watch=.ts$ -w -l info -P dist/app.js",
+    "prepare": "husky install"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fastify": "^4.26.1",
-    "fastify-plugin": "^4.0.0",
+    "@commitlint/config-conventional": "^19.2.2",
     "@fastify/autoload": "^5.0.0",
     "@fastify/sensible": "^5.0.0",
-    "fastify-cli": "^6.3.0"
+    "fastify": "^4.26.1",
+    "fastify-cli": "^6.3.0",
+    "fastify-plugin": "^4.0.0",
+    "lint-staged": "^15.2.7",
+    "prettier": "^3.3.3"
   },
   "devDependencies": {
     "@types/node": "^20.4.4",
     "c8": "^10.1.2",
-    "ts-node": "^10.4.0",
+    "commitlint": "^19.3.0",
     "concurrently": "^8.2.2",
     "fastify-tsconfig": "^2.0.0",
+    "husky": "^8.0.0",
+    "pinst": "^3.0.0",
+    "ts-node": "^10.4.0",
     "typescript": "^5.2.2"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "echo ”[Husky] pre-commit”"
+    }
+  },
+  "lint-staged": {
+    "**/*.{js,jsx,ts,tsx,html,css,json}": [
+      "npm run prettier --write"
+    ]
   }
 }
