@@ -2,12 +2,12 @@ import { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import prisma from "../../utils/prismaClient";
 import {
   PaginationParams,
-  PaginationResponse,
   PopularSong,
   SongParams,
   SongQuery,
   SongSort,
 } from "../../interfaces/iSong";
+import { paginate } from "../../utils/pagination";
 
 const songsRoute: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   fastify.get(
@@ -24,30 +24,16 @@ const songsRoute: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
         : 0;
 
       const totalSongs = await prisma.song.count();
-      const totalPages = Math.ceil(totalSongs / limit);
-      const currentPage = Math.floor(offset / limit) + 1;
-
       const songs = await prisma.song.findMany({
         take: limit,
         skip: offset,
       });
 
-      const pagination: PaginationResponse = {
-        total_pages: totalPages,
-        current_page: currentPage,
-        next_page:
-          currentPage < totalPages
-            ? `/songs?limit=${limit}&offset=${offset + limit}`
-            : null,
-        previous_page:
-          currentPage > 1
-            ? `/songs?limit=${limit}&offset=${offset - limit}`
-            : null,
-      };
+      const { data, pagination } = paginate(totalSongs, limit, offset, songs);
 
       reply.send({
         take: limit,
-        data: songs,
+        data,
         pagination,
       });
     },
@@ -71,21 +57,6 @@ const songsRoute: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
 
       const year = parseInt(request.params.year, 10);
       const totalSongs = await prisma.song.count({ where: { year } });
-      const totalPages = Math.ceil(totalSongs / limit);
-      const currentPage = Math.floor(offset / limit) + 1;
-      const pagination = {
-        total_pages: totalPages,
-        current_page: currentPage,
-        next_page:
-          currentPage < totalPages
-            ? `/songs?limit=${limit}&offset=${offset + limit}`
-            : null,
-        previous_page:
-          currentPage > 1
-            ? `/songs?limit=${limit}&offset=${offset - limit}`
-            : null,
-      };
-
       const songs = await prisma.song.findMany({
         where: {
           year,
@@ -94,12 +65,13 @@ const songsRoute: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
         skip: offset,
       });
 
+      const { data, pagination } = paginate(totalSongs, limit, offset, songs);
+
       reply.send({
         take: limit,
-        data: songs,
+        data,
         pagination,
       });
-      reply.send(songs);
     },
   );
 
@@ -123,21 +95,6 @@ const songsRoute: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
       let playsColumn: string;
       let popularSongs: PopularSong[];
       const totalSongs = await prisma.song.count();
-      const totalPages = Math.ceil(totalSongs / limit);
-      const currentPage = Math.floor(offset / limit) + 1;
-      const pagination = {
-        total_pages: totalPages,
-        current_page: currentPage,
-        next_page:
-          currentPage < totalPages
-            ? `/songs?limit=${limit}&offset=${offset + limit}`
-            : null,
-        previous_page:
-          currentPage > 1
-            ? `/songs?limit=${limit}&offset=${offset - limit}`
-            : null,
-      };
-
       switch (period) {
         case "august":
           playsColumn = "playsAugust";
@@ -155,14 +112,22 @@ const songsRoute: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
             ORDER BY totalPlays DESC
             LIMIT ${limit}
           `;
-          // Convert totalPlays to a string
+
           popularSongs = popularSongs.map((song) => ({
             ...song,
             totalPlays: Number(song.totalPlays),
           }));
+
+          const { data, pagination } = paginate(
+            totalSongs,
+            limit,
+            offset,
+            popularSongs,
+          );
+
           return reply.send({
             take: limit,
-            data: popularSongs,
+            data,
             pagination,
           });
         default:
@@ -177,9 +142,11 @@ const songsRoute: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
         skip: offset,
       });
 
+      const { data, pagination } = paginate(totalSongs, limit, offset, songs);
+
       reply.send({
         take: limit,
-        data: songs,
+        data,
         pagination,
       });
     },
@@ -225,30 +192,17 @@ const songsRoute: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
         ],
       };
       const totalSongs = await prisma.song.count({ where });
-      const totalPages = Math.ceil(totalSongs / limit);
-      const currentPage = Math.floor(offset / limit) + 1;
-      const pagination = {
-        total_pages: totalPages,
-        current_page: currentPage,
-        next_page:
-          currentPage < totalPages
-            ? `/songs?limit=${limit}&offset=${offset + limit}`
-            : null,
-        previous_page:
-          currentPage > 1
-            ? `/songs?limit=${limit}&offset=${offset - limit}`
-            : null,
-      };
-
-      const searchResults = await prisma.song.findMany({
+      const songs = await prisma.song.findMany({
         where,
         take: limit,
         skip: offset,
       });
 
+      const { data, pagination } = paginate(totalSongs, limit, offset, songs);
+
       reply.send({
         take: limit,
-        data: searchResults,
+        data,
         pagination,
       });
     },
@@ -267,37 +221,31 @@ const songsRoute: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
         ? parseInt(request.query.offset, 10)
         : 0;
 
-      const totalSongs = await prisma.song.count();
-      const totalPages = Math.ceil(totalSongs / limit);
-      const currentPage = Math.floor(offset / limit) + 1;
-      const pagination = {
-        total_pages: totalPages,
-        current_page: currentPage,
-        next_page:
-          currentPage < totalPages
-            ? `/songs?limit=${limit}&offset=${offset + limit}`
-            : null,
-        previous_page:
-          currentPage > 1
-            ? `/songs?limit=${limit}&offset=${offset - limit}`
-            : null,
-      };
-
       const sortBy = request.query.sortBy;
       const sortOrder = request.query.sortOrder === "desc" ? "desc" : "asc";
-      const sortedSongs = await prisma.song.findMany({
-        orderBy: {
-          [sortBy]: sortOrder,
-        },
-        take: limit,
-        skip: offset,
-      });
+      const totalSongs = await prisma.song.count();
 
-      reply.send({
-        take: limit,
-        data: sortedSongs,
-        pagination,
-      });
+      try {
+        const songs = await prisma.song.findMany({
+          orderBy: {
+            [sortBy]: sortOrder,
+          },
+          take: limit,
+          skip: offset,
+        });
+
+        const { data, pagination } = paginate(totalSongs, limit, offset, songs);
+
+        reply.send({
+          take: limit,
+          data,
+          pagination,
+        });
+      } catch (error) {
+        return reply
+          .code(400)
+          .send({ error: `'${sortBy}' is invalid column.` });
+      }
     },
   );
 };
